@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""
+bv: Quickly view (satellite) imagery directly in your iTerm2 terminal.
+
+Dale Roberts <dale.o.roberts@gmail.com>
+
+http://www.github.com/daleroberts/bv
+"""
+import numpy as np
+import shutil
+import gdal
+import sys
+import os
+import re
+
+from urllib.request import urlopen, URLError
+from base64 import b64encode
+from uuid import uuid4
+
+gdal.UseExceptions()
+
+SAMPLING = {'nearest': gdal.GRIORA_NearestNeighbour,
+            'bilinear': gdal.GRIORA_Bilinear,
+            'cubic': gdal.GRIORA_Cubic,
+            'cubicspline': gdal.GRIORA_Cubic,
+            'lanczos': gdal.GRIORA_Lanczos,
+            'average': gdal.GRIORA_Average,
+            'mode': gdal.GRIORA_Mode}
+RE_URL = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+
+def sizefmt(num, suffix='B'):
+    for unit in ['','K','M','G','T','P','E','Z']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
+
+def typescale(data, dtype=np.uint8):
+    typeinfo = np.iinfo(dtype)
+    low, high = typeinfo.min, typeinfo.max
+    cmin, cmax = data.min(), data.max()
+    cscale = cmax - cmin
+    scale = float(high - low) / cscale
+    typedata = (data * 1.0 - cmin) * scale + 0.4999
+    typedata[typedata < low] = low
+    typedata[typedata > high] = high
+    return typedata.astype(dtype) + np.cast[dtype](low)
+
+
+def show(rbs, xoff, yoff, ow, oh, w, h, r, zlevel):
+    memdriver = gdal.GetDriverByName('MEM')
+    md = memdriver.Create('', h, w, 3, gdal.GDT_UInt16)
+    for i, b in enumerate(rbs):
+        bnd = b.ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
+                            buf_ysize=h, resample_alg=SAMPLING[r])
+        obnd = md.GetRasterBand(i+1)
+        obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
+
+    if zlevel is None:
+        zlevel = 'ZLEVEL=1'
+    else:
+        zlevel = 'ZLEVEL={}'.format(zlevel)
+
+    mmapfn = "/vsimem/" + uuid4().hex
+    driver = gdal.GetDriverByName('PNG')
+    fd = driver.CreateCopy(mmapfn, md, 0, [zlevel])
+
+    del fd
+    del md
+
+    inline=True
+    preserveAspectRatio=True
+
+    size = gdal.VSIStatL(mmapfn, gdal.VSI_STAT_SIZE_FLAG).size
+    fd = gdal.VSIFOpenL(mmapfn, 'rb')
+    data = gdal.VSIFReadL(1, size, fd)
+    gdal.VSIFCloseL(fd)
+    assert(size == len(data))
+
+    buf = bytes()
+    enc = 'utf-8'
+
+    buf += b'\033'
+    buf += b']'
+    buf += b'1337;File='
+
+    buf += b';size=%d' % len(data)
+    buf += b';inline=%d' % int(inline)
+    buf += b';width=%s' % str('auto').encode(enc)
+    buf += b';height=%s' % str('auto').encode(enc)
+    buf += b';preserveAspectRatio=%d' % int(preserveAspectRatio)
+    buf += b':'
+    buf += b64encode(data)
+
+    buf += b'\a'
+
+    buf += b'\n'
+
+    sys.stdout.buffer.write(buf)
+    sys.stdout.flush()
+
+    print('data: {}'.format(sizefmt(size)))
+
+    #except AttributeError:
+    #    print('incorrect srcwin')
+    #    sys.exit(1)
+
+    #finally:
+    gdal.Unlink(mmapfn)
+
+
+def show_stacked(imgs, w=80, b=None, r='average', srcwin=None, zlevel=False):
+    fds = [gdal.Open(fd) for fd in imgs[:3]]
+    rbs = [fd.GetRasterBand(1) for fd in fds]
+
+    if srcwin is not None:
+        xoff, yoff, ow, oh = srcwin
+    else:
+        xoff, yoff, ow, oh = 0, 0, fds[0].RasterXSize, fds[0].RasterYSize
+
+    hs, ws = 8, 4
+    w, h = w * ws, round((oh / ow) * (w * ws) / hs) * hs
+
+    show(rbs, xoff, yoff, ow, oh, w, h, r, zlevel)
+
+
+def show_fd(fd, w=80, b=None, r='average', srcwin=None, zlevel=False):
+    if b is None:
+        b = [1, 2, 3]
+
+    rc = fd.RasterCount
+
+    if rc == 1:
+        rbs = [fd.GetRasterBand(1) for i in range(3)]
+    else:
+        rbs = [fd.GetRasterBand(i) for i in b]
+
+    if srcwin is not None:
+        xoff, yoff, ow, oh = srcwin
+    else:
+        xoff, yoff, ow, oh = 0, 0, fd.RasterXSize, fd.RasterYSize
+
+    w, h = 800, 800
+
+    show(rbs, xoff, yoff, ow, oh, w, h, r, zlevel)
+
+
+def show_fn(fn, *args, **kwargs):
+    try:
+        show_fd(gdal.Open(fn), *args, **kwargs)
+    except RuntimeError as e:
+        print(e)
+        sys.exit(1)
+
+
+def show_url(url, *args, **kwargs):
+    try:
+        urlfd = urlopen(url, timeout=15)
+        mmapfn = "/vsimem/" + uuid4().hex
+        gdal.FileFromMemBuffer(mmapfn, urlfd.read())
+        show_fd(gdal.Open(mmapfn), *args, **kwargs)
+    except URLError as e:
+        print(e)
+    finally:
+        gdal.Unlink(mmapfn)
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-w', type=int, default=shutil.get_terminal_size()[0])
+    parser.add_argument('-b', action='append', type=int)
+    parser.add_argument('-r', choices=SAMPLING.keys(), default='average')
+    parser.add_argument('-stack', action='store_true')
+    parser.add_argument('-urls', action='store_true')
+    parser.add_argument('-nofn', action='store_true')
+    parser.add_argument('-zlevel', type=int, required=False)
+    parser.add_argument('img', nargs='+')
+    parser.add_argument('-srcwin', nargs=4,
+                        metavar=('xoff', 'yoff', 'xsize', 'ysize'), type=int)
+    kwargs = vars(parser.parse_args())
+
+    imgs = kwargs.pop('img')
+    urls = kwargs.pop('urls')
+    nofn = kwargs.pop('nofn') or (imgs[0] != '-' and len(imgs) == 1)
+    stack = kwargs.pop('stack')
+
+    try:
+        if not sys.stdin.isatty() or imgs[0] == '-':
+            imgs = [line.strip() for line in sys.stdin.readlines()]
+
+        if stack:
+            show_stacked(imgs, **kwargs)
+            sys.exit(0)
+
+        for img in imgs:
+            if urls:
+                for url in re.findall(RE_URL, img):
+                    if not nofn:
+                        print(url)
+                    show_url(url, **kwargs)
+            else:
+                if not nofn:
+                    print(img)
+                show_fn(img, **kwargs)
+
+    except KeyboardInterrupt:
+        print()
