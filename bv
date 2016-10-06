@@ -47,14 +47,27 @@ def typescale(data, dtype=np.uint8):
     return typedata.astype(dtype) + np.cast[dtype](low)
 
 
-def show(rbs, xoff, yoff, ow, oh, w, h, r, zlevel):
+def show(rbs, xoff, yoff, ow, oh, w, h, r='average', zlevel=1, cm='viridis'):
     memdriver = gdal.GetDriverByName('MEM')
-    md = memdriver.Create('', h, w, 3, gdal.GDT_UInt16)
-    for i, b in enumerate(rbs):
-        bnd = b.ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
-                            buf_ysize=h, resample_alg=SAMPLING[r])
-        obnd = md.GetRasterBand(i+1)
-        obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
+    if len(rbs) == 1:
+        md = memdriver.Create('', h, w, 3, gdal.GDT_UInt16)
+        bnd = rbs[0].ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
+                                 buf_ysize=h, resample_alg=SAMPLING[r])
+        import matplotlib.cm as cms
+        cm = getattr(cms, cm)
+        dmin, dmax = bnd.min(), bnd.max()
+        bnds = cm((bnd - dmin)/(dmax - dmin))
+        for i in range(3):
+            bnd = bnds[:,:,i]
+            obnd = md.GetRasterBand(i+1)
+            obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
+    else:
+        md = memdriver.Create('', h, w, 3, gdal.GDT_UInt16)
+        for i, b in enumerate(rbs):
+            bnd = b.ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
+                                buf_ysize=h, resample_alg=SAMPLING[r])
+            obnd = md.GetRasterBand(i+1)
+            obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
 
     if zlevel is None:
         zlevel = 'ZLEVEL=1'
@@ -109,7 +122,7 @@ def show(rbs, xoff, yoff, ow, oh, w, h, r, zlevel):
     gdal.Unlink(mmapfn)
 
 
-def show_stacked(imgs, w=80, b=None, r='average', srcwin=None, zlevel=False):
+def show_stacked(imgs, *args, **kwargs):
     fds = [gdal.Open(fd) for fd in imgs[:3]]
     rbs = [fd.GetRasterBand(1) for fd in fds]
 
@@ -121,28 +134,30 @@ def show_stacked(imgs, w=80, b=None, r='average', srcwin=None, zlevel=False):
     hs, ws = 8, 4
     w, h = w * ws, round((oh / ow) * (w * ws) / hs) * hs
 
-    show(rbs, xoff, yoff, ow, oh, w, h, r, zlevel)
+    show(rbs, *args, **kwargs)
 
 
-def show_fd(fd, w=80, b=None, r='average', srcwin=None, zlevel=False):
+def show_fd(fd, *args, **kwargs):
+    b = kwargs.pop('b')
     if b is None:
         b = [1, 2, 3]
 
     rc = fd.RasterCount
 
     if rc == 1:
-        rbs = [fd.GetRasterBand(1) for i in range(3)]
+        rbs = [fd.GetRasterBand(1)]
     else:
         rbs = [fd.GetRasterBand(i) for i in b]
 
+    srcwin = kwargs.pop('srcwin')
     if srcwin is not None:
         xoff, yoff, ow, oh = srcwin
     else:
         xoff, yoff, ow, oh = 0, 0, fd.RasterXSize, fd.RasterYSize
 
-    w, h = 800, 800
+    kwargs['h'] = kwargs['w'] #FIXME
 
-    show(rbs, xoff, yoff, ow, oh, w, h, r, zlevel)
+    show(rbs, xoff, yoff, ow, oh, **kwargs)
 
 
 def show_fn(fn, *args, **kwargs):
@@ -168,13 +183,14 @@ def show_url(url, *args, **kwargs):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-w', type=int, default=shutil.get_terminal_size()[0])
+    parser.add_argument('-w', type=int, default=800)
     parser.add_argument('-b', action='append', type=int)
     parser.add_argument('-r', choices=SAMPLING.keys(), default='average')
+    parser.add_argument('-cm', default="bone")
+    parser.add_argument('-zlevel', type=int)
     parser.add_argument('-stack', action='store_true')
     parser.add_argument('-urls', action='store_true')
     parser.add_argument('-nofn', action='store_true')
-    parser.add_argument('-zlevel', type=int, required=False)
     parser.add_argument('img', nargs='+')
     parser.add_argument('-srcwin', nargs=4,
                         metavar=('xoff', 'yoff', 'xsize', 'ysize'), type=int)
