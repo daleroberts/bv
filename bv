@@ -112,7 +112,6 @@ def show(rbs, xoff, yoff, ow, oh, w, h, r='average', zlevel=1, cm='viridis'):
     sys.stdout.buffer.write(buf)
     sys.stdout.flush()
 
-    print('data: {}'.format(sizefmt(size)))
 
     #except AttributeError:
     #    print('incorrect srcwin')
@@ -120,6 +119,8 @@ def show(rbs, xoff, yoff, ow, oh, w, h, r='average', zlevel=1, cm='viridis'):
 
     #finally:
     gdal.Unlink(mmapfn)
+
+    return size
 
 
 def show_stacked(imgs, *args, **kwargs):
@@ -134,7 +135,7 @@ def show_stacked(imgs, *args, **kwargs):
     hs, ws = 8, 4
     w, h = w * ws, round((oh / ow) * (w * ws) / hs) * hs
 
-    show(rbs, *args, **kwargs)
+    return show(rbs, *args, **kwargs)
 
 
 def show_fd(fd, *args, **kwargs):
@@ -157,12 +158,19 @@ def show_fd(fd, *args, **kwargs):
 
     kwargs['h'] = kwargs['w'] #FIXME
 
-    show(rbs, xoff, yoff, ow, oh, **kwargs)
+    return show(rbs, xoff, yoff, ow, oh, **kwargs)
 
 
 def show_fn(fn, *args, **kwargs):
     try:
-        show_fd(gdal.Open(fn), *args, **kwargs)
+        quiet = kwargs.pop('quiet')
+        fd = gdal.Open(fn)
+        size = show_fd(fd, *args, **kwargs)
+        geo = fd.GetGeoTransform()
+        if not quiet:
+            desc = '{}x{} pixels @ {:.2f}mx{:.2f}m resolution / {} bands.  {}'
+            print(desc.format(fd.RasterYSize, fd.RasterXSize, abs(geo[1]),
+                              abs(geo[5]), fd.RasterCount, sizefmt(size)))
     except RuntimeError as e:
         print(e)
         sys.exit(1)
@@ -173,7 +181,7 @@ def show_url(url, *args, **kwargs):
         urlfd = urlopen(url, timeout=15)
         mmapfn = "/vsimem/" + uuid4().hex
         gdal.FileFromMemBuffer(mmapfn, urlfd.read())
-        show_fd(gdal.Open(mmapfn), *args, **kwargs)
+        return show_fd(gdal.Open(mmapfn), *args, **kwargs)
     except URLError as e:
         print(e)
     finally:
@@ -188,6 +196,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', choices=SAMPLING.keys(), default='average')
     parser.add_argument('-cm', default="bone")
     parser.add_argument('-zlevel', type=int)
+    parser.add_argument('-quiet', action='store_true')
     parser.add_argument('-stack', action='store_true')
     parser.add_argument('-urls', action='store_true')
     parser.add_argument('-nofn', action='store_true')
