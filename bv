@@ -47,10 +47,10 @@ def typescale(data, dtype=np.uint8):
     return typedata.astype(dtype) + np.cast[dtype](low)
 
 
-def show(rbs, xoff, yoff, ow, oh, w, h, r='average', zlevel=1, cm='viridis'):
+def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='viridis'):
     memdriver = gdal.GetDriverByName('MEM')
     if len(rbs) == 1:
-        md = memdriver.Create('', h, w, 3, gdal.GDT_UInt16)
+        md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
         bnd = rbs[0].ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
                                  buf_ysize=h, resample_alg=SAMPLING[r])
         import matplotlib.cm as cms
@@ -62,7 +62,7 @@ def show(rbs, xoff, yoff, ow, oh, w, h, r='average', zlevel=1, cm='viridis'):
             obnd = md.GetRasterBand(i+1)
             obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
     else:
-        md = memdriver.Create('', h, w, 3, gdal.GDT_UInt16)
+        md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
         for i, b in enumerate(rbs):
             bnd = b.ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
                                 buf_ysize=h, resample_alg=SAMPLING[r])
@@ -156,7 +156,7 @@ def show_fd(fd, *args, **kwargs):
     else:
         xoff, yoff, ow, oh = 0, 0, fd.RasterXSize, fd.RasterYSize
 
-    kwargs['h'] = kwargs['w'] #FIXME
+    kwargs['h'] = int(oh/ow * kwargs['w'])
 
     return show(rbs, xoff, yoff, ow, oh, **kwargs)
 
