@@ -47,7 +47,7 @@ def typescale(data, dtype=np.uint8):
     return typedata.astype(dtype) + np.cast[dtype](low)
 
 
-def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='viridis'):
+def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='bone'):
     memdriver = gdal.GetDriverByName('MEM')
     if len(rbs) == 1:
         md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
@@ -62,12 +62,19 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='virid
             obnd = md.GetRasterBand(i+1)
             obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
     else:
-        md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
+        if len(rbs) == 4: #RGBA
+            md = memdriver.Create('', w, h, 4, gdal.GDT_UInt16)
+            rbs = rbs[:4]
+        else: # RGB
+            md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
+            rbs = rbs[:3]
         for i, b in enumerate(rbs):
             bnd = b.ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
                                 buf_ysize=h, resample_alg=SAMPLING[r])
             obnd = md.GetRasterBand(i+1)
             obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
+            if i==3: # alpha
+                obnd.SetColorInterpretation(gdal.GCI_AlphaBand)
 
     if zlevel is None:
         zlevel = 'ZLEVEL=1'
@@ -140,14 +147,16 @@ def show_stacked(imgs, *args, **kwargs):
 
 def show_fd(fd, *args, **kwargs):
     b = kwargs.pop('b')
-    if b is None:
-        b = [1, 2, 3]
-
     rc = fd.RasterCount
 
     if rc == 1:
         rbs = [fd.GetRasterBand(1)]
     else:
+        if b is None:
+            if rc == 4:
+                b = range(1, 5)
+            else:
+                b = range(1, 4)
         rbs = [fd.GetRasterBand(i) for i in b]
 
     srcwin = kwargs.pop('srcwin')
