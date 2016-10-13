@@ -42,8 +42,9 @@ def typescale(data, dtype=np.uint8):
     cscale = cmax - cmin
     scale = float(high - low) / cscale
     typedata = (data * 1.0 - cmin) * scale + 0.4999
-    typedata[typedata < low] = low
-    typedata[typedata > high] = high
+    with np.errstate(all='ignore'):
+        typedata[typedata < low] = low
+        typedata[typedata > high] = high
     return typedata.astype(dtype) + np.cast[dtype](low)
 
 
