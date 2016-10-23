@@ -48,24 +48,35 @@ def typescale(data, dtype=np.uint8):
     return typedata.astype(dtype) + np.cast[dtype](low)
 
 
-def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='bone'):
+def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
+         cm='bone', tmux=False, alpha=None):
     memdriver = gdal.GetDriverByName('MEM')
     if len(rbs) == 1:
-        md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
+        if alpha is None:
+            md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
+        else:
+            md = memdriver.Create('', w, h, 4, gdal.GDT_UInt16)
         bnd = rbs[0].ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
                                  buf_ysize=h, resample_alg=SAMPLING[r])
-        import matplotlib.cm as cms
-        cm = getattr(cms, cm)
+        try:
+            import matplotlib.cm as cms
+            cm = getattr(cms, cm)
+        except AttributeError:
+            print('incorrect colormap, defaulting to "bone"')
+            cm = getattr(cms, 'bone')
         dmin, dmax = bnd.min(), bnd.max()
         bnds = cm((bnd - dmin)/(dmax - dmin))
         for i in range(3):
-            bnd = bnds[:,:,i]
             obnd = md.GetRasterBand(i+1)
-            obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
+            obnd.WriteArray(typescale(bnds[:,:,i], np.uint16), 0, 0)
+        if alpha is not None:
+            obnd = md.GetRasterBand(4)
+            mask = np.logical_and.reduce([bnd!=n for n in alpha])
+            obnd.WriteArray((65535*mask).astype(np.uint16), 0, 0)
+            obnd.SetColorInterpretation(gdal.GCI_AlphaBand)
     else:
-        if len(rbs) == 4: #RGBA
+        if len(rbs) == 4 or alpha is not None: #RGBA
             md = memdriver.Create('', w, h, 4, gdal.GDT_UInt16)
-            rbs = rbs[:4]
         else: # RGB
             md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
             rbs = rbs[:3]
@@ -76,6 +87,11 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='bone'
             obnd.WriteArray(typescale(bnd, np.uint16), 0, 0)
             if i==3: # alpha
                 obnd.SetColorInterpretation(gdal.GCI_AlphaBand)
+        if alpha is not None:
+            obnd = md.GetRasterBand(4)
+            mask = np.logical_and.reduce([bnd!=n for n in alpha])
+            obnd.WriteArray((65535*mask).astype(np.uint16), 0, 0)
+            obnd.SetColorInterpretation(gdal.GCI_AlphaBand)
 
     if zlevel is None:
         zlevel = 'ZLEVEL=1'
@@ -98,13 +114,18 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='bone'
     gdal.VSIFCloseL(fd)
     assert(size == len(data))
 
+    if tmux:
+        print('tmux')
+
     buf = bytes()
     enc = 'utf-8'
 
-    buf += b'\033'
-    buf += b']'
-    buf += b'1337;File='
+    if tmux:
+        buf += b'\033Ptmux;\033\033]'
+    else:
+        buf += b'\033]'
 
+    buf += b'1337;File='
     buf += b';size=%d' % len(data)
     buf += b';inline=%d' % int(inline)
     buf += b';width=%s' % str('auto').encode(enc)
@@ -113,7 +134,10 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='bone'
     buf += b':'
     buf += b64encode(data)
 
-    buf += b'\a'
+    if tmux:
+        buf += b'\a\033\\'
+    else:
+        buf += b'\a'
 
     buf += b'\n'
 
@@ -132,18 +156,28 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1, cm='bone'
 
 
 def show_stacked(imgs, *args, **kwargs):
+    b = kwargs.pop('b')
+
     fds = [gdal.Open(fd) for fd in imgs[:3]]
     rbs = [fd.GetRasterBand(1) for fd in fds]
 
+    quiet = kwargs.pop('quiet')
+    srcwin = kwargs.pop('srcwin')
     if srcwin is not None:
         xoff, yoff, ow, oh = srcwin
     else:
         xoff, yoff, ow, oh = 0, 0, fds[0].RasterXSize, fds[0].RasterYSize
 
-    hs, ws = 8, 4
-    w, h = w * ws, round((oh / ow) * (w * ws) / hs) * hs
+    kwargs['h'] = int(oh/ow * kwargs['w'])
 
-    return show(rbs, *args, **kwargs)
+    size = show(rbs, xoff, yoff, ow, oh, **kwargs)
+
+    fd = fds[0]
+    geo = fd.GetGeoTransform()
+    if not quiet:
+        desc = '{}x{} pixels @ {:.2f}mx{:.2f}m resolution / {} bands.  [tfr: {}]'
+        print(desc.format(fd.RasterYSize, fd.RasterXSize, abs(geo[1]),
+                          abs(geo[5]), fd.RasterCount, sizefmt(size)))
 
 
 def show_fd(fd, *args, **kwargs):
@@ -178,7 +212,7 @@ def show_fn(fn, *args, **kwargs):
         size = show_fd(fd, *args, **kwargs)
         geo = fd.GetGeoTransform()
         if not quiet:
-            desc = '{}x{} pixels @ {:.2f}mx{:.2f}m resolution / {} bands.  {}'
+            desc = '{}x{} pixels @ {:.2f}mx{:.2f}m resolution / {} bands.  [tfr: {}]'
             print(desc.format(fd.RasterYSize, fd.RasterXSize, abs(geo[1]),
                               abs(geo[5]), fd.RasterCount, sizefmt(size)))
     except RuntimeError as e:
@@ -206,19 +240,22 @@ if __name__ == '__main__':
     parser.add_argument('-r', choices=SAMPLING.keys(), default='average')
     parser.add_argument('-cm', default="bone")
     parser.add_argument('-zlevel', type=int)
+    parser.add_argument('-alpha', action='append', type=int)
     parser.add_argument('-quiet', action='store_true')
     parser.add_argument('-stack', action='store_true')
+    parser.add_argument('-revstack', action='store_true')
     parser.add_argument('-urls', action='store_true')
     parser.add_argument('-nofn', action='store_true')
+    parser.add_argument('-tmux', action='store_true')
+    parser.add_argument('-srcwin', nargs=4, metavar=('xoff', 'yoff', 'xsize', 'ysize'), type=int)
     parser.add_argument('img', nargs='+')
-    parser.add_argument('-srcwin', nargs=4,
-                        metavar=('xoff', 'yoff', 'xsize', 'ysize'), type=int)
     kwargs = vars(parser.parse_args())
 
     imgs = kwargs.pop('img')
     urls = kwargs.pop('urls')
     nofn = kwargs.pop('nofn') or (imgs[0] != '-' and len(imgs) == 1)
     stack = kwargs.pop('stack')
+    revstack = kwargs.pop('revstack')
 
     try:
         if not sys.stdin.isatty() or imgs[0] == '-':
@@ -226,6 +263,10 @@ if __name__ == '__main__':
 
         if stack:
             show_stacked(imgs, **kwargs)
+            sys.exit(0)
+
+        if revstack:
+            show_stacked(list(reversed(imgs)), **kwargs)
             sys.exit(0)
 
         for img in imgs:
