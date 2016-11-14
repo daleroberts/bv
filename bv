@@ -38,7 +38,7 @@ def sizefmt(num, suffix='B'):
 def typescale(data, dtype=np.uint8):
     typeinfo = np.iinfo(dtype)
     low, high = typeinfo.min, typeinfo.max
-    cmin, cmax = data.min(), data.max()
+    cmin, cmax = np.min(data), np.max(data)
     cscale = cmax - cmin
     scale = float(high - low) / cscale
     typedata = (data * 1.0 - cmin) * scale + 0.4999
@@ -237,7 +237,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-w', type=int, default=800)
     parser.add_argument('-b', action='append', type=int)
-    parser.add_argument('-r', choices=SAMPLING.keys(), default='average')
+    parser.add_argument('-r', choices=SAMPLING.keys(), default='nearest')
     parser.add_argument('-cm', default="bone")
     parser.add_argument('-zlevel', type=int)
     parser.add_argument('-alpha', action='append', type=int)
