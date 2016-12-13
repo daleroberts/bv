@@ -167,6 +167,7 @@ def show_stacked(imgs, *args, **kwargs):
 
 def show_fd(fd, *args, **kwargs):
     b = kwargs.pop('b')
+    quiet = kwargs.pop('quiet')
     rc = fd.RasterCount
 
     if rc == 1:
