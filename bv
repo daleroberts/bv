@@ -72,7 +72,7 @@ def imgcat(data, tmux=False, inline=True, preserveAspectRatio=True):
 
 
 def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
-         cm='bone', tmux=False, alpha=None, maxvalue=None):
+         cm='bone', tmux=False, alpha=None, maxvalue=None, quiet=None):
     memdriver = gdal.GetDriverByName('MEM')
     if len(rbs) == 1:
         if alpha is None:
@@ -167,7 +167,6 @@ def show_stacked(imgs, *args, **kwargs):
 
 def show_fd(fd, *args, **kwargs):
     b = kwargs.pop('b')
-    quiet = kwargs.pop('quiet')
     rc = fd.RasterCount
 
     if rc == 1:
