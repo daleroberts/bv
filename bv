@@ -14,6 +14,7 @@ import os
 import re
 
 from urllib.request import urlopen, URLError
+from os.path import splitext
 from base64 import b64encode
 from uuid import uuid4
 
@@ -50,6 +51,20 @@ def typescale(data, dtype=np.uint8, maxvalue=None):
         typedata[typedata > high] = high
     return typedata.astype(dtype) + np.cast[dtype](low)
 
+def imgcat(data, tmux=False, inline=True, preserveAspectRatio=True):
+    buf = bytes()
+    if tmux:
+        buf += b'\033Ptmux;\033'
+    buf += b'\033]'
+    buf += b'1337;File=cal.pdf;size=%d' % len(data)
+    buf += b';inline=1;width=auto;height=auto;preserveAspectRatio=1:'
+    buf += b64encode(data)
+    buf += b'\a'
+    if tmux:
+        buf += b'\033\\'
+    buf += b'\n'
+    sys.stdout.buffer.write(buf)
+    sys.stdout.flush()
 
 def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
          cm='bone', tmux=False, alpha=None, maxvalue=None):
@@ -108,45 +123,12 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
     del fd
     del md
 
-    inline=True
-    preserveAspectRatio=True
-
     size = gdal.VSIStatL(mmapfn, gdal.VSI_STAT_SIZE_FLAG).size
     fd = gdal.VSIFOpenL(mmapfn, 'rb')
     data = gdal.VSIFReadL(1, size, fd)
     gdal.VSIFCloseL(fd)
     assert(size == len(data))
-
-    if tmux:
-        print('tmux')
-
-    buf = bytes()
-    enc = 'utf-8'
-
-    if tmux:
-        buf += b'\033Ptmux;\033\033]'
-    else:
-        buf += b'\033]'
-
-    buf += b'1337;File='
-    buf += b';size=%d' % len(data)
-    buf += b';inline=%d' % int(inline)
-    buf += b';width=%s' % str('auto').encode(enc)
-    buf += b';height=%s' % str('auto').encode(enc)
-    buf += b';preserveAspectRatio=%d' % int(preserveAspectRatio)
-    buf += b':'
-    buf += b64encode(data)
-
-    if tmux:
-        buf += b'\a\033\\'
-    else:
-        buf += b'\a'
-
-    buf += b'\n'
-
-    sys.stdout.buffer.write(buf)
-    sys.stdout.flush()
-
+    imgcat(data)
 
     #except AttributeError:
     #    print('incorrect srcwin')
@@ -250,6 +232,7 @@ if __name__ == '__main__':
     parser.add_argument('-revstack', action='store_true')
     parser.add_argument('-urls', action='store_true')
     parser.add_argument('-nofn', action='store_true')
+    parser.add_argument('-nopassthrough', action='store_true')
     parser.add_argument('-tmux', action='store_true')
     parser.add_argument('-srcwin', nargs=4, metavar=('xoff', 'yoff', 'xsize', 'ysize'), type=int)
     parser.add_argument('img', nargs='+')
@@ -260,6 +243,7 @@ if __name__ == '__main__':
     nofn = kwargs.pop('nofn') or (imgs[0] != '-' and len(imgs) == 1)
     stack = kwargs.pop('stack')
     revstack = kwargs.pop('revstack')
+    nop = kwargs.pop('nopassthrough')
 
     try:
         if not sys.stdin.isatty() or imgs[0] == '-':
@@ -282,7 +266,12 @@ if __name__ == '__main__':
             else:
                 if not nofn:
                     print(img)
-                show_fn(img, **kwargs)
+                if not nop and splitext(img)[1][1:].lower() in ['png', 'pdf', 'eps']:
+                    with open(img, 'rb') as fd:
+                        data = fd.read()
+                        imgcat(data)
+                else:
+                    show_fn(img, **kwargs)
 
     except KeyboardInterrupt:
         print()
