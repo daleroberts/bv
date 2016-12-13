@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-bv: Quickly view (satellite) imagery directly in your iTerm2 terminal.
+bv: Quickly view hyperspectral imagery, satellite imagery, and 
+machine learning image outputs directly in your iTerm2 terminal.
 
 Dale Roberts <dale.o.roberts@gmail.com>
 
@@ -29,12 +30,14 @@ SAMPLING = {'nearest': gdal.GRIORA_NearestNeighbour,
             'mode': gdal.GRIORA_Mode}
 RE_URL = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
 
+
 def sizefmt(num, suffix='B'):
-    for unit in ['','K','M','G','T','P','E','Z']:
+    for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Yi', suffix)
+
 
 def typescale(data, dtype=np.uint8, maxvalue=None):
     typeinfo = np.iinfo(dtype)
@@ -51,6 +54,7 @@ def typescale(data, dtype=np.uint8, maxvalue=None):
         typedata[typedata > high] = high
     return typedata.astype(dtype) + np.cast[dtype](low)
 
+
 def imgcat(data, tmux=False, inline=True, preserveAspectRatio=True):
     buf = bytes()
     if tmux:
@@ -65,6 +69,7 @@ def imgcat(data, tmux=False, inline=True, preserveAspectRatio=True):
     buf += b'\n'
     sys.stdout.buffer.write(buf)
     sys.stdout.flush()
+
 
 def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
          cm='bone', tmux=False, alpha=None, maxvalue=None):
@@ -83,32 +88,32 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
             print('incorrect colormap, defaulting to "bone"')
             cm = getattr(cms, 'bone')
         dmin, dmax = bnd.min(), bnd.max()
-        bnds = cm((bnd - dmin)/(dmax - dmin))
+        bnds = cm((bnd - dmin) / (dmax - dmin))
         for i in range(3):
-            obnd = md.GetRasterBand(i+1)
-            obnd.WriteArray(typescale(bnds[:,:,i], np.uint16), 0, 0)
+            obnd = md.GetRasterBand(i + 1)
+            obnd.WriteArray(typescale(bnds[:, :, i], np.uint16), 0, 0)
         if alpha is not None:
             obnd = md.GetRasterBand(4)
-            mask = np.logical_and.reduce([bnd!=n for n in alpha])
-            obnd.WriteArray((65535*mask).astype(np.uint16), 0, 0)
+            mask = np.logical_and.reduce([bnd != n for n in alpha])
+            obnd.WriteArray((65535 * mask).astype(np.uint16), 0, 0)
             obnd.SetColorInterpretation(gdal.GCI_AlphaBand)
     else:
-        if len(rbs) == 4 or alpha is not None: #RGBA
+        if len(rbs) == 4 or alpha is not None:  # RGBA
             md = memdriver.Create('', w, h, 4, gdal.GDT_UInt16)
-        else: # RGB
+        else:  # RGB
             md = memdriver.Create('', w, h, 3, gdal.GDT_UInt16)
             rbs = rbs[:3]
         for i, b in enumerate(rbs):
             bnd = b.ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
                                 buf_ysize=h, resample_alg=SAMPLING[r])
-            obnd = md.GetRasterBand(i+1)
+            obnd = md.GetRasterBand(i + 1)
             obnd.WriteArray(typescale(bnd, np.uint16, maxvalue), 0, 0)
-            if i==3: # alpha
+            if i == 3:  # alpha
                 obnd.SetColorInterpretation(gdal.GCI_AlphaBand)
         if alpha is not None:
             obnd = md.GetRasterBand(4)
-            mask = np.logical_and.reduce([bnd!=n for n in alpha])
-            obnd.WriteArray((65535*mask).astype(np.uint16), 0, 0)
+            mask = np.logical_and.reduce([bnd != n for n in alpha])
+            obnd.WriteArray((65535 * mask).astype(np.uint16), 0, 0)
             obnd.SetColorInterpretation(gdal.GCI_AlphaBand)
 
     if zlevel is None:
@@ -130,11 +135,6 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
     assert(size == len(data))
     imgcat(data)
 
-    #except AttributeError:
-    #    print('incorrect srcwin')
-    #    sys.exit(1)
-
-    #finally:
     gdal.Unlink(mmapfn)
 
     return size
@@ -153,16 +153,16 @@ def show_stacked(imgs, *args, **kwargs):
     else:
         xoff, yoff, ow, oh = 0, 0, fds[0].RasterXSize, fds[0].RasterYSize
 
-    kwargs['h'] = int(oh/ow * kwargs['w'])
+    kwargs['h'] = int(oh / ow * kwargs['w'])
 
     size = show(rbs, xoff, yoff, ow, oh, **kwargs)
 
     fd = fds[0]
     geo = fd.GetGeoTransform()
     if not quiet:
-        desc = '{}x{} pixels @ {:.2f}mx{:.2f}m resolution / {} bands.  [tfr: {}]'
-        print(desc.format(fd.RasterYSize, fd.RasterXSize, abs(geo[1]),
-                          abs(geo[5]), fd.RasterCount, sizefmt(size)))
+        desc = '{}x{} pixels / {} bands.  [tfr: {}]'
+        print(desc.format(fd.RasterYSize, fd.RasterXSize,
+                          fd.RasterCount, sizefmt(size)))
 
 
 def show_fd(fd, *args, **kwargs):
@@ -185,7 +185,7 @@ def show_fd(fd, *args, **kwargs):
     else:
         xoff, yoff, ow, oh = 0, 0, fd.RasterXSize, fd.RasterYSize
 
-    kwargs['h'] = int(oh/ow * kwargs['w'])
+    kwargs['h'] = int(oh / ow * kwargs['w'])
 
     return show(rbs, xoff, yoff, ow, oh, **kwargs)
 
@@ -197,11 +197,14 @@ def show_fn(fn, *args, **kwargs):
         size = show_fd(fd, *args, **kwargs)
         geo = fd.GetGeoTransform()
         if not quiet:
-            desc = '{}x{} pixels @ {:.2f}mx{:.2f}m resolution / {} bands.  [tfr: {}]'
-            print(desc.format(fd.RasterYSize, fd.RasterXSize, abs(geo[1]),
-                              abs(geo[5]), fd.RasterCount, sizefmt(size)))
+            desc = '{}x{} pixels / {} bands.  [tfr: {}]'
+            print(desc.format(fd.RasterYSize, fd.RasterXSize,
+                              fd.RasterCount, sizefmt(size)))
     except RuntimeError as e:
-        print(e)
+        print('Error:', e)
+        sys.exit(1)
+    except TypeError:
+        print('Error: bad data. incorrect srcwin?')
         sys.exit(1)
 
 
@@ -234,7 +237,9 @@ if __name__ == '__main__':
     parser.add_argument('-nofn', action='store_true')
     parser.add_argument('-nopassthrough', action='store_true')
     parser.add_argument('-tmux', action='store_true')
-    parser.add_argument('-srcwin', nargs=4, metavar=('xoff', 'yoff', 'xsize', 'ysize'), type=int)
+    parser.add_argument('-srcwin', nargs=4,
+                        metavar=('xoff', 'yoff', 'xsize', 'ysize'),
+                        type=int)
     parser.add_argument('img', nargs='+')
     kwargs = vars(parser.parse_args())
 
