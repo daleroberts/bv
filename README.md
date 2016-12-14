@@ -33,7 +33,8 @@ You can also specify a single band to display (e.g., `-b 1`).
 
 ## Subset images
 
-You can subset images using `gdal_translate` syntax which is `-srcwin xoff yoff xsize ysize`.
+You can subset images using `gdal_translate` syntax which is `-srcwin xoff yoff
+xsize ysize`. For example, only displaying a small 1000x1000 area of the same large image above.
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/subset.png" width="800">
 
@@ -43,16 +44,15 @@ into `gdal_translate` to complete your desired workflow. For example:
 remote$ gdal_translate tasmania-2014.tif -b 5 -b 4 -b 3 -srcwin 12000 11000 1000 1000 -of PNG -ot UInt16 -scale 0 4000 ~/out.png
 Input file size is 20000, 16000
 0...10...20...30...40...50...60...70...80...90...100 - done.
+remote$
 ```
 
+## Machine learning multi-class outputs with different color maps
 
-## Machine learning classifier output with different color maps
-
-Different color maps can be applied to single-band images using the `-cm`
-option and any choice from [matplotlib's
-colormaps](http://matplotlib.org/examples/color/colormaps_reference.html). The
-width (in pixels) of the output image can also be specified with the `-w`
-option.
+Sometimes you might have a single-band image that only contains classes
+(integers). Different color maps can be applied to these single-band images
+using the `-cm` option and any choice from [matplotlib's
+colormaps](http://matplotlib.org/examples/color/colormaps_reference.html).
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/colors.png" width="800">
 
