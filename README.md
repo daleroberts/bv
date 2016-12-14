@@ -3,9 +3,9 @@
 directly in your [iTerm 2](https://www.iterm2.com). It was designed for
 visualising very large images located on a remote machine over a low-bandwidth
 connection. It subsamples and compresses the image and then sends over the wire
-as a PNG that has been base64 encoded.
+as a PNG that has been base64 encoded (hence the name "bv").
 
-<img src="https://github.com/daleroberts/tv/blob/master/docs/trump.png" width="800">
+<img src="https://github.com/daleroberts/bv/raw/master/docs/trump.png" width="800">
 
 # Installation
 
