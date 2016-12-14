@@ -2,9 +2,9 @@
 **bv** is a small tool to quickly view high-resolution multi-band imagery
 directly in your [iTerm 2](https://www.iterm2.com). It was designed for
 visualising very large images located on a remote machine over a low-bandwidth
-connection. It subsamples and compresses the image and then sends over the wire
-as a PNG that has been base64 encoded (hence the name "bv") that iTerm 2 then 
-inlines in your terminal.
+connection. It subsamples and compresses the image sends over the wire as a
+base64-encoded PNG (hence the name "bv") that iTerm 2 inlines in your
+terminal.
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/trump.png" width="800">
 
@@ -24,12 +24,12 @@ Display a 3.5 billion pixel single-band image (3.3GB) using only 467KB over a SS
 ## Different band combinations
 
 Display a six-band image (7.2GB) using only 1.1MB over a SSH connection. Here,
-we put bands 5-4-3 into the RGB channels using `-b 5 -b 4 -b 3` and set the
-width of the output image to be 600 pixels using `-w 600`.
+we put bands 5-4-3 into the RGB channels using `-b 5 -b 4 -b 3` (ordering
+matters) and set the width of the output image to be 600 pixels using `-w 600`.
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/bands.png" width="800">
 
-
+You can also specify a single band to display (e.g., `-b 1`).
 
 ## Machine learning classifier output with different color maps
 

@@ -39,11 +39,11 @@ def sizefmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def typescale(data, dtype=np.uint8, maxvalue=None):
+def typescale(data, dtype=np.uint8, scale=None):
     typeinfo = np.iinfo(dtype)
     low, high = typeinfo.min, typeinfo.max
-    if maxvalue:
-        cmin, cmax = np.min(data), maxvalue
+    if scale:
+        cmin, cmax = scale
     else:
         cmin, cmax = np.min(data), np.max(data)
     cscale = cmax - cmin
@@ -72,7 +72,7 @@ def imgcat(data, tmux=False, inline=True, preserveAspectRatio=True):
 
 
 def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
-         cm='bone', tmux=False, alpha=None, maxvalue=None, quiet=None):
+         cm='bone', tmux=False, alpha=None, scale=None, quiet=None):
     memdriver = gdal.GetDriverByName('MEM')
     if len(rbs) == 1:
         if alpha is None:
@@ -107,7 +107,7 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
             bnd = b.ReadAsArray(xoff, yoff, ow, oh, buf_xsize=w,
                                 buf_ysize=h, resample_alg=SAMPLING[r])
             obnd = md.GetRasterBand(i + 1)
-            obnd.WriteArray(typescale(bnd, np.uint16, maxvalue), 0, 0)
+            obnd.WriteArray(typescale(bnd, np.uint16, scale), 0, 0)
             if i == 3:  # alpha
                 obnd.SetColorInterpretation(gdal.GCI_AlphaBand)
         if alpha is not None:
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', choices=SAMPLING.keys(), default='nearest')
     parser.add_argument('-cm', default="bone")
     parser.add_argument('-zlevel', type=int)
-    parser.add_argument('-maxvalue', type=int)
+    parser.add_argument('-scale', nargs=2, type=float, metavar=('minval', 'maxval'))
     parser.add_argument('-alpha', action='append', type=int)
     parser.add_argument('-quiet', action='store_true')
     parser.add_argument('-stack', action='store_true')
