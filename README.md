@@ -17,9 +17,19 @@ Here are a number of examples that show how this tool can be used.
 
 ## Big image over small connection
 
-Transfer a 3.5 billion pixel single-band image (3.3GB) using only 467KB over a SSH connection.
+Display a 3.5 billion pixel single-band image (3.3GB) using only 467KB over a SSH connection.
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/bigimg.png" width="800">
+
+## Different band combinations
+
+Display a six-band image (7.2GB) using only 1.1MB over a SSH connection. Here,
+we put bands 5-4-3 into the RGB channels using `-b 5 -b 4 -b 3` and set the
+width of the output image to be 600 pixels using `-w 600`.
+
+<img src="https://github.com/daleroberts/bv/raw/master/docs/bands.png" width="800">
+
+
 
 ## Machine learning classifier output with different color maps
 
