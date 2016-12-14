@@ -70,7 +70,7 @@ remote$ landsat search --lat 25 --lon 55 --latest 3 | bv -urls -
 
 Filenames can be read from `stdin`. For example:
 ```
-ls -1 | bv -w 100 -
+ls -1 *.tif | bv -w 100 -
 ```
 
 ## Compression
