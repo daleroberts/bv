@@ -10,9 +10,11 @@ inlines in your terminal.
 
 # Examples
 
+Here are a number of examples that show how this tool can be used.
+
 ## Big image over small connection
 
-Transfer a *3.5 billion* pixel single-band image (3.3GB) using only 467KB over a SSH connection.
+Transfer a 3.5 billion pixel single-band image (3.3GB) using only 467KB over a SSH connection.
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/bigimg.png" width="800">
 
@@ -24,7 +26,7 @@ colormaps](http://matplotlib.org/examples/color/colormaps_reference.html). The
 width (in pixels) of the output image can also be specified with the `-w`
 option.
 
-<img src="https://github.com/daleroberts/bv/raw/master/docs/bigimg.png" width="800">
+<img src="https://github.com/daleroberts/bv/raw/master/docs/colors.png" width="800">
 
 # Installation
 
