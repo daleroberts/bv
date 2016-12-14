@@ -56,6 +56,47 @@ colormaps](http://matplotlib.org/examples/color/colormaps_reference.html).
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/colors.png" width="800">
 
+## URLs
+
+The **bv** tool can read from URLs (see the Trump image above). It can also
+parse URLs on `stdin`, this allows you to [do
+things](https://github.com/developmentseed/landsat-util) like this to quicky
+display available Landsat images roughly over Dubai.
+
+```
+remote$ landsat search --lat 25 --lon 55 --latest 3 | bv -urls -
+```
+
+## Standard Input
+
+Filenames can be read from `stdin`. For example:
+```
+ls -1 | bv -w 100 -
+```
+
+## Compression
+
+The level of compression can be changed using the `-zlevel` option (0-9).
+
+## Stacking images
+
+If your bands are located in seperate images then you can stack them and display them
+in the RGB channels using
+```
+bv -stack RED.tif GREEN.tif BLUE.tif
+```
+
+## Subsampling algorithm
+
+The subsampling algorithm can be changed using the `-r` option (same syntax as GDAL). The available subsamplings are:
+- Nearest
+- Average
+- Cubic Spline
+- Cubic
+- Mode
+- Lanczos
+- Bilinear
+
 # Installation
 
 It is just a single-file script so all you'll need to do it put it in your
