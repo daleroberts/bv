@@ -2,9 +2,8 @@
 **bv** is a small tool to quickly view high-resolution multi-band imagery
 directly in your [iTerm 2](https://www.iterm2.com). It was designed for
 visualising very large images located on a remote machine over a low-bandwidth
-connection. It subsamples and compresses the image sends over the wire as a
-base64-encoded PNG (hence the name "bv") that iTerm 2 inlines in your
-terminal.
+connection. It subsamples and compresses the image sends it over the wire as a
+base64-encoded PNG (hence the name "bv") that iTerm 2 inlines in your terminal.
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/trump.png" width="800">
 
