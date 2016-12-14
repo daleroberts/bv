@@ -106,6 +106,24 @@ channel. This is sometimes useful for machine learning outputs where you want
 to not display certain classes. You can add multiple of these with different
 values.
 
+## PDF, EPS, and PNG
+
+The **bv** tool will display PDF, EPS, and PNG output inline with out any
+changes to those files. If you want to disable this behaviour you can pass the
+`-nop` option allow GDAL to subsample, etc.
+
+## TMUX Support
+
+To enable TMUX support, you can try the `-tmux` option and pray that you have a
+recent enough version for this to work.
+
+# Configuration
+
+You can save your default configuration by setting an alias in your `~/.profile` file. For example, I do:
+```
+alias bv='bv -w 800'
+```
+
 # Installation
 
 It is just a single-file script so all you'll need to do it put it in your
