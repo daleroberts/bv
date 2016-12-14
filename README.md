@@ -31,6 +31,21 @@ matters) and set the width of the output image to be 600 pixels using `-w 600`.
 
 You can also specify a single band to display (e.g., `-b 1`).
 
+## Subset images
+
+You can subset images using `gdal_translate` syntax which is `-srcwin xoff yoff xsize ysize`.
+
+<img src="https://github.com/daleroberts/bv/raw/master/docs/subset.png" width="800">
+
+This allows you to quickly identify regions of your image and then paste the same options 
+into `gdal_translate` to complete your desired workflow. For example:
+```
+remote$ gdal_translate tasmania-2014.tif -b 5 -b 4 -b 3 -srcwin 12000 11000 1000 1000 -of PNG -ot UInt16 -scale 0 4000 ~/out.png
+Input file size is 20000, 16000
+0...10...20...30...40...50...60...70...80...90...100 - done.
+```
+
+
 ## Machine learning classifier output with different color maps
 
 Different color maps can be applied to single-band images using the `-cm`
