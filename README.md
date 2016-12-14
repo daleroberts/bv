@@ -8,6 +8,9 @@ inlines in your terminal.
 
 <img src="https://github.com/daleroberts/bv/raw/master/docs/trump.png" width="800">
 
+Now, go and compare the above to [old-school rendering](https://camo.githubusercontent.com/a6c791a0b4d97315d00b6592f918fe744abe00e6/687474703a2f2f692e696d6775722e636f6d2f556e666e704d722e706e67)
+or my other tool [tv](https://github.com/daleroberts/tv).
+
 # Examples
 
 Here are a number of examples that show how this tool can be used.
