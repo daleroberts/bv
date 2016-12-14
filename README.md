@@ -86,6 +86,8 @@ in the RGB channels using
 bv -stack RED.tif GREEN.tif BLUE.tif
 ```
 
+There is also the `-revstack` option to do it in reverse order.
+
 ## Subsampling algorithm
 
 The subsampling algorithm can be changed using the `-r` option (same syntax as GDAL). The available subsamplings are:
@@ -96,6 +98,13 @@ The subsampling algorithm can be changed using the `-r` option (same syntax as G
 - Mode
 - Lanczos
 - Bilinear
+
+## Alpha channel
+
+For single-band images, you can specify the color value to set as the alpha
+channel. This is sometimes useful for machine learning outputs where you want
+to not display certain classes. You can add multiple of these with different
+values.
 
 # Installation
 
