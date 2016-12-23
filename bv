@@ -29,14 +29,14 @@ SAMPLING = {'nearest': gdal.GRIORA_NearestNeighbour,
             'average': gdal.GRIORA_Average,
             'mode': gdal.GRIORA_Mode}
 RE_URL = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-
+TMUX = os.getenv('TERM','').startswith('screen')
 
 def sizefmt(num, suffix='B'):
     for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
+            return '%3.1f%s%s' % (num, unit, suffix)
         num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
+    return '%.1f%s%s' % (num, 'Yi', suffix)
 
 
 def typescale(data, dtype=np.uint8, scale=None):
@@ -55,24 +55,33 @@ def typescale(data, dtype=np.uint8, scale=None):
     return typedata.astype(dtype) + np.cast[dtype](low)
 
 
-def imgcat(data, tmux=False, inline=True, preserveAspectRatio=True):
+def imgcat(data, lines=-1):
+    if TMUX:
+        if lines == -1:
+            lines = 10
+        osc = b'\033Ptmux;\033\033]'
+        st = b'\a\033\\'
+    else:
+        osc = b'\033]'
+        st = b'\a'
+    csi = b'\033['
     buf = bytes()
-    if tmux:
-        buf += b'\033Ptmux;\033'
-    buf += b'\033]'
-    buf += b'1337;File=cal.pdf;size=%d' % len(data)
-    buf += b';inline=1;width=auto;height=auto;preserveAspectRatio=1:'
-    buf += b64encode(data)
-    buf += b'\a'
-    if tmux:
-        buf += b'\033\\'
-    buf += b'\n'
+    if lines > 0:
+        buf += lines*b'\n' + csi + b'?25l' + csi + b'%dF' % lines + osc
+        dims = b'width=auto;height=%d;preserveAspectRatio=1' % lines
+    else:
+        buf += osc
+        dims = b'width=auto;height=auto'
+    buf += b'1337;File=;size=%d;inline=1;' % len(data) + dims + b':'
+    buf += b64encode(data) + st
+    if lines > 0:
+        buf += csi + b'%dE' % lines + csi + b'?25h'
     sys.stdout.buffer.write(buf)
     sys.stdout.flush()
 
 
 def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
-         cm='bone', tmux=False, alpha=None, scale=None, quiet=None):
+         cm='bone', alpha=None, scale=None, quiet=None, lines=-1):
     memdriver = gdal.GetDriverByName('MEM')
     if len(rbs) == 1:
         if alpha is None:
@@ -125,15 +134,12 @@ def show(rbs, xoff, yoff, ow, oh, w=500, h=500, r='average', zlevel=1,
     driver = gdal.GetDriverByName('PNG')
     fd = driver.CreateCopy(mmapfn, md, 0, [zlevel])
 
-    del fd
-    del md
-
     size = gdal.VSIStatL(mmapfn, gdal.VSI_STAT_SIZE_FLAG).size
     fd = gdal.VSIFOpenL(mmapfn, 'rb')
     data = gdal.VSIFReadL(1, size, fd)
     gdal.VSIFCloseL(fd)
-    assert(size == len(data))
-    imgcat(data)
+
+    imgcat(data, lines)
 
     gdal.Unlink(mmapfn)
 
@@ -236,7 +242,7 @@ if __name__ == '__main__':
     parser.add_argument('-urls', action='store_true')
     parser.add_argument('-nofn', action='store_true')
     parser.add_argument('-nopassthrough', action='store_true')
-    parser.add_argument('-tmux', action='store_true')
+    parser.add_argument('-lines', type=int, default=-1)
     parser.add_argument('-srcwin', nargs=4,
                         metavar=('xoff', 'yoff', 'xsize', 'ysize'),
                         type=int)
@@ -249,6 +255,10 @@ if __name__ == '__main__':
     stack = kwargs.pop('stack')
     revstack = kwargs.pop('revstack')
     nop = kwargs.pop('nopassthrough')
+
+    if TMUX:
+        # dirty hack to make tmux integration work
+        kwargs['w'] = min(kwargs['w'], 370)
 
     try:
         if not sys.stdin.isatty() or imgs[0] == '-':
@@ -274,7 +284,7 @@ if __name__ == '__main__':
                 if not nop and splitext(img)[1][1:].lower() in ['png', 'pdf', 'eps']:
                     with open(img, 'rb') as fd:
                         data = fd.read()
-                        imgcat(data)
+                        imgcat(data, kwargs.pop('lines'))
                 else:
                     show_fn(img, **kwargs)
 

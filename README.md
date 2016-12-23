@@ -113,8 +113,7 @@ changes to those files. If you want to disable this behaviour you can pass the
 
 ## TMUX Support
 
-To enable TMUX support, you can try the `-tmux` option and pray that you have a
-recent enough version for this to work.
+<img src="https://github.com/daleroberts/bv/raw/master/docs/tmux.png" width="800">
 
 # Configuration
 
