@@ -284,9 +284,12 @@ if __name__ == '__main__':
                 if not nop and splitext(img)[1][1:].lower() in ['png', 'pdf', 'eps']:
                     with open(img, 'rb') as fd:
                         data = fd.read()
-                        imgcat(data, kwargs.pop('lines'))
+                        imgcat(data, kwargs.pop('lines', -1))
                 else:
                     show_fn(img, **kwargs)
 
     except KeyboardInterrupt:
+        pass
+
+    finally:
         print()
